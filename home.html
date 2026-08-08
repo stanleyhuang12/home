@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stanley Huang — Academic Homepage</title>
+<style>
+  :root {
+    --text: #1a1a1a; /* body text */
+    --muted: #6a6a6a; /* captions, dates */
+    --link: #0b5cad; /* link blue */
+    --muted-accent: #3b6a99c7; /* not too much blue for muted links*/
+    --rule: #e4e4e4; /* thin dividers  */
+    --bg: #ffffff; /* page background */
+    --strong: black; /* bolded text */
+    --accent: #8a3324; /* second bold color, for <strong class="accent"> */
+    --sidebar-w: 230px;  /* left column width */
+    --content-max: 720px; /* reading measure */
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  strong { color: var(--strong); font-weight: 800; }
+
+  a { color: var(--link); text-decoration: none; }
+  a.muted { color: var(--muted-accent) }
+  a:hover { text-decoration: underline; }
+  a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 2px; }
+
+  .wrap {
+    display: flex;
+    gap: 48px;
+    max-width: 1040px;
+    margin: 0;              /* flush left; use "0 auto" to center the block */
+    padding: 56px 48px 80px;
+  }
+
+  .side {
+    flex: 0 0 var(--sidebar-w);
+    position: sticky;
+    top: 24px; 
+    align-self: flex-start; 
+  }
+  .photo {
+    width: 180px;
+    aspect-ratio: 1 / 1;
+    border-radius: 3px;
+    object-fit: cover;
+    background: #eee;  
+    display: block;
+    margin-bottom: 18px;
+  }
+  .name {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 22px;
+    line-height: 1.25;
+    margin: 0 0 2px;
+  }
+  .role {
+    color: var(--muted);
+    font-size: 14.5px;
+    margin: 0 0 20px;
+  }
+  .nav a {
+    display: block;
+    padding: 4px 0;
+    font-size: 15px;
+  }
+  .contact {
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid var(--rule);
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+  .contact a { color: var(--muted); text-decoration: underline; }
+
+  /* ----- Right content column ----- */
+  .content { flex: 1 1 auto; max-width: var(--content-max); }
+  .content h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 19px;
+    font-weight: 600;
+    margin: 40px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .content h2:first-child { margin-top: 4px; }
+  .content p { margin: 0 0 16px; }
+
+  /* Publication entries */
+  .pubs { margin: 0; }
+  .pub {
+    margin: 0 0 14px;
+    font-size: 15px;
+  }
+  .pub .authors { }
+  .pub .title { font-style: italic; }
+  .pub .venue { color: var(--muted); }
+  .pub .links { font-size: 13.5px; }
+  .group-label {
+    font-size: 14px;
+    color: var(--muted);
+    margin: 22px 0 10px;
+  }
+
+  @media (max-width: 720px) {
+    .wrap { flex-direction: column; gap: 28px; padding: 32px 20px 56px; }
+    .side { flex-basis: auto; position: static; }
+    .photo { width: 140px; }
+    .nav { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+    .nav a { padding: 2px 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { scroll-behavior: auto !important; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- ============ LEFT SIDEBAR ============ -->
+    <aside class="side">
+      <!-- Replace src with your photo, e.g. src="me.jpg" -->
+      <img class="photo" src="me.jpg" alt="Portrait of Stanley">
+
+      <h1 class="name">Stanley Huang</h1>
+      <p class="role">Graduate Student, Cyborg Psychology<br>MIT Media Lab</p>
+
+      <nav class="nav">
+        <a href="#research">Research</a>
+        <a href="#publications">Publications</a>
+        <a href="blog.html">Blogs</a>
+        <a href="cv.pdf">CV</a>
+        <a href="https://scholar.google.com/">Google Scholar</a>
+        <a href="https://github.com/">GitHub</a>
+      </nav>
+
+      <div class="contact">
+        stanleyh@mit.edu<br>
+        75 Amherst St, Cambridge, MA 02139<br>
+      </div>
+    </aside>
+
+    <!-- ============ RIGHT CONTENT ============ -->
+    <main class="content">
+
+      <section id="research">
+        <h2>Research interests</h2>
+        <p>
+          I am an incoming graduate student at the <a href="https://www.media.mit.edu/groups/cyborg-psychology/overview/">MIT Media Lab with Pat Pataranutaporn under the Cyborg Psychology group</a>. Broadly, my research interests lie in developing methods to study <strong>long-horizon agentic behavior with mechanistic and attributional interpretability</strong>. I hope to draw 
+          on these insights to develop novel human-computer interaction paradigms and affordances that amplify human capabilities.  
+        </p>
+        <p>
+          Right now, I am working as an AI & ML Intern at <a href="https://noblis.org/">Noblis</a> developing in-house solutions for feature attribution (e.g., <a class="muted" href="https://arxiv.org/abs/2601.16407">1</a>, <a class="muted" href="https://arxiv.org/pdf/2602.01914">2</a>, <a class="muted" href="https://arxiv.org/pdf/2402.05602">3</a>) and studying how selecting certain target outputs as objects affect attributional faithfulness and plausibility. 
+        </p>
+      </section>
+
+      <section id="publications">
+        <h2>Representative publications</h2>
+        <p>
+          A full list is available on <a href="https://scholar.google.com/">Google Scholar</a>.
+          Below are a few papers that best represent the direction of my work.
+        </p>
+
+        <!-- <div id="pub-list">
+          <p class="venue">Loading publications…</p>
+        </div> -->
+        <noscript>
+          <p>This list is rendered with JavaScript. See
+            <a href="https://scholar.google.com/">Google Scholar</a> for the full list.</p>
+        </noscript>
+      </section>
+
+    </main>
+  </div>
+
+<script>
+(function () {
+  var host = document.getElementById('pub-list');
+  if (!host) return;
+
+  function esc(value) {
+    return String(value == null ? '' : value).replace(/[&<>"]/g, function (ch) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch];
+    });
+  }
+
+  function authors(text, highlight) {
+    var out = esc(text);
+    if (highlight) {
+      var name = esc(highlight);
+      out = out.split(name).join('<strong>' + name + '</strong>');
+    }
+    return out;
+  }
+
+  function entry(pub, highlight) {
+    var parts = ['<span class="authors">' + authors(pub.authors, highlight) + '</span>'];
+    if (pub.year) parts.push('(' + esc(pub.year) + ').');
+    parts.push('<span class="title">' + esc(pub.title) + '</span>');
+    if (pub.venue) parts.push('<span class="venue">' + esc(pub.venue) + '</span>');
+    if (pub.links && pub.links.length) {
+      parts.push('<span class="links">' + pub.links.map(function (link) {
+        return '(<a href="' + esc(link.href) + '">' + esc(link.label) + '</a>)';
+      }).join(' ') + '</span>');
+    }
+    return '<p class="pub">' + parts.join(' ') + '</p>';
+  }
+
+  fetch('publications.json')
+    .then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    })
+    .then(function (data) {
+      host.innerHTML = (data.groups || []).map(function (group) {
+        return (group.label ? '<p class="group-label">' + esc(group.label) + '</p>' : '')
+          + '<div class="pubs">'
+          + (group.publications || []).map(function (pub) {
+              return entry(pub, data.highlightAuthor);
+            }).join('')
+          + '</div>';
+      }).join('') || '<p>No publications listed yet.</p>';
+    })
+    .catch(function (err) {
+      host.innerHTML = '<p>Could not load publications.json (' + esc(err.message)
+        + '). See <a href="https://scholar.google.com/">Google Scholar</a>.</p>';
+      console.error(err);
+    });
+})();
+</script>
+</body>
+</html>
