@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A primer on feature attribution for autoregressive language models — Stanley Huang</title>
+<style>
+  :root {
+    --text: #1a1a1a;
+    --muted: #6a6a6a;
+    --link: #0b5cad;
+    --rule: #e4e4e4;
+    --bg: #ffffff;
+    --strong: black;
+    --accent: #8a3324;
+    --content-max: 680px;  /* the reading measure — text never exceeds this */
+    --note-w: 200px;       /* margin column that holds sidenotes */
+    --note-gap: 40px;      /* space between text and notes */
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  strong { color: var(--strong); font-weight: 800; }
+  a { color: var(--link); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 2px; }
+
+  /* Wide enough for text + margin column; the text itself stays at
+     --content-max, so prose never stretches across a large monitor. */
+  .post-wrap {
+    max-width: calc(var(--content-max) + var(--note-gap) + var(--note-w));
+    margin: 0 auto;
+    padding: 56px 28px 80px;
+  }
+  .back, .post-header, article { max-width: var(--content-max); }
+
+  .back { display: inline-block; font-size: 14px; color: var(--muted); margin-bottom: 32px; }
+
+  .post-header { margin-bottom: 32px; }
+  .post-header h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 27px;
+    font-weight: 600;
+    line-height: 1.3;
+    margin: 0 0 6px;
+  }
+  .post-header .meta { font-size: 14px; color: var(--muted); margin: 0; }
+
+  article p { margin: 0 0 18px; }
+  article h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 21px;
+    font-weight: 600;
+    margin: 40px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--rule);
+  }
+  article h3 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 17px;
+    font-weight: 600;
+    margin: 30px 0 10px;
+  }
+  article ul, article ol { margin: 0 0 18px; padding-left: 22px; }
+  article li { margin-bottom: 8px; }
+
+  article blockquote {
+    margin: 0 0 18px;
+    padding: 2px 0 2px 16px;
+    border-left: 2px solid var(--rule);
+    color: var(--muted);
+  }
+  article blockquote blockquote { margin-bottom: 0; }
+
+  /* ----- Table of contents (written as [TOC] in the Markdown) ----- */
+  .toc {
+    margin: 0 0 36px;
+    padding: 14px 18px;
+    border-left: 2px solid var(--rule);
+    font-size: 14px;
+  }
+  .toc > ul { margin: 0; padding-left: 16px; }
+  .toc ul ul { padding-left: 16px; margin: 4px 0; }   /* ### nested under ## */
+  .toc li { margin-bottom: 4px; }
+  .toc a { color: var(--text); }
+  .toc a:hover { color: var(--link); }
+
+  /* The ¶ permalink beside each heading — hidden until the heading is hovered */
+  .headerlink {
+    color: var(--rule);
+    text-decoration: none;
+    margin-left: 8px;
+    font-weight: 400;
+    opacity: 0;
+    transition: opacity .15s;
+  }
+  h2:hover .headerlink, h3:hover .headerlink { opacity: 1; }
+  .headerlink:hover { color: var(--link); text-decoration: none; }
+
+  article img { max-width: 100%; height: auto; border-radius: 3px; display: block; }
+  article figure { margin: 24px 0; }
+  article figcaption { font-size: 14px; color: var(--muted); margin-top: 6px; }
+
+  /* Markdown tables */
+  .table-scroll { overflow-x: auto; margin: 0 0 20px; }
+  article table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+  article th, article td {
+    text-align: left;
+    vertical-align: top;
+    padding: 8px 12px 8px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  article th { font-weight: 600; border-bottom: 1px solid #c9c9c9; }
+
+  /* Relative size, so inline code tracks whatever contains it — body text,
+     a sidenote, a heading. Monospace runs visually large at a matched size,
+     so 0.9em is what actually looks equal to the surrounding prose. */
+  article code, .sidenote code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.9em;
+    background: #f5f5f5;
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+  article pre { background: #f7f7f6; padding: 14px 16px; border-radius: 4px; overflow-x: auto; }
+  /* Block code is pinned rather than relative — a fenced block should read the
+     same everywhere, not shrink because of where it sits. */
+  article pre code { background: none; padding: 0; font-size: 13.5px; }
+
+  /* Syntax highlighting (Pygments classes, emitted by codehilite).
+     Muted palette so code sits quietly next to the prose. */
+  .codehilite { background: #f7f7f6; border-radius: 4px; margin: 0 0 20px; }
+  .codehilite pre { margin: 0; background: none; }
+  .codehilite .c, .codehilite .c1, .codehilite .cm { color: #8a8a8a; font-style: italic; }
+  .codehilite .k, .codehilite .kn, .codehilite .kd, .codehilite .kc { color: #8a3324; font-weight: 600; }
+  .codehilite .ow, .codehilite .o  { color: #8a3324; }
+  .codehilite .s, .codehilite .s1, .codehilite .s2, .codehilite .sd, .codehilite .sb { color: #2c6e49; }
+  .codehilite .m, .codehilite .mi, .codehilite .mf { color: #7a4fbf; }
+  .codehilite .nf { color: #0b5cad; }
+  .codehilite .nc { color: #0b5cad; font-weight: 600; }
+  .codehilite .nd { color: #a06000; }
+  .codehilite .nb, .codehilite .bp { color: #0b5cad; }
+  .codehilite .nn { color: #1a1a1a; }
+  .codehilite .err { color: inherit; border: 0; }
+
+  /* ----- Cite this post ----- */
+  .cite {
+    max-width: var(--content-max);
+    margin-top: 56px;
+    padding-top: 10px;
+    border-top: 1px solid var(--rule);
+    position: relative;
+  }
+  .cite h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--muted);
+    margin: 0 0 10px;
+  }
+  .cite pre {
+    background: #f7f7f6;
+    padding: 14px 16px;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0;
+  }
+  .cite-copy {
+    position: absolute;
+    top: 10px;
+    right: 0;
+    font: inherit;
+    font-size: 12.5px;
+    color: var(--muted);
+    background: none;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 3px 10px;
+    cursor: pointer;
+  }
+  .cite-copy:hover { color: var(--link); border-color: var(--link); }
+
+  /* ----- Sidenotes -----
+     build.py rewrites Markdown footnotes into a marker plus a <span class="sidenote">
+     that floats out into the right margin, level with the sentence citing it. */
+  .sidenote-ref {
+    font-size: 11px;
+    vertical-align: super;
+    line-height: 0;
+    color: var(--link);
+    cursor: pointer;
+    padding: 0 1px;
+  }
+  .sidenote-toggle { display: none; }   /* the checkbox is never shown itself */
+
+  .sidenote {
+    float: right;
+    clear: right;
+    width: var(--note-w);
+    /* Pull it out of the text column and into the gutter. */
+    margin-right: calc(-1 * (var(--note-w) + var(--note-gap)));
+    margin-bottom: 16px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--muted);
+    text-align: left;
+  }
+  .sidenote-num {
+    color: var(--link);
+    font-size: 11px;
+    vertical-align: super;
+    line-height: 0;
+    margin-right: 4px;
+  }
+
+  /* No margin to spare — collapse notes and reveal one when its marker is tapped. */
+  @media (max-width: 1000px) {
+    .post-wrap { max-width: var(--content-max); }
+    .sidenote { display: none; }
+    .sidenote-toggle:checked + .sidenote {
+      display: block;
+      float: none;
+      width: 100%;
+      margin: 14px 0;
+      padding: 10px 14px;
+      border-left: 2px solid var(--rule);
+      background: #fafafa;
+    }
+    .sidenote-ref::after { content: "\00a0"; }
+  }
+
+  /* Display equations can overflow on narrow screens */
+  mjx-container[display="true"] { overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+  /* Math in a 200px-wide sidenote needs to wrap or scroll, not spill out. */
+  .sidenote mjx-container { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
+
+  @media (max-width: 720px) {
+    .post-wrap { padding: 32px 20px 56px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { scroll-behavior: auto !important; }
+  }
+</style>
+</head>
+<body>
+  <div class="post-wrap">
+
+    <a class="back" href="../blog.html">&larr; All posts</a>
+
+    <header class="post-header">
+      <h1>A primer on feature attribution for autoregressive language models</h1>
+      <p class="meta">August 8, 2026</p>
+    </header>
+
+    <article>
+<p>$\textbf{Introduction.}$
+In this blog article, I aim to synthesize, and reconstitute all my learnings of feature attribution in the summer of ’26 into my own mental framework. As part of this synthesis process, I chose to not use LLMs to plan or write this article. I wanted to practice choosing, framing, and establishing context that I thought was important. </p>
+<ul>
+<li>An overview of the differences between explainable AI and the modernized version of attributional interpretability. </li>
+<li>Aim to describe the broad of feature attribution methods for autoregressive language models, attribution contract.</li>
+<li>Aim to show an example of a few methods and describe how it works intuitively</li>
+</ul>
+<h2 id="what-is-feature-attribution">What is feature attribution?<a class="headerlink" href="#what-is-feature-attribution" title="Permanent link">¶</a></h2>
+<p>Feature attribution aims to identify inputs that are responsible for a model&rsquo;s response. Feature attribution belongs to a subfield of mechanistic interpretability known as attributional interpretability. Attributional interpretability is broadly split into three families, where outputs are traced back to features (i.e., feature attribution), internal components (i.e., internal attribution), or second-order effects of training data (i.e., data attribution). A feature attribution method assigns importance scores to input features; for an autoregressive language model, this would mean assigning importance scores to context tokens. </p>
+<p>Attribution methods should specify an attribution target, $O$, as the specific output feature held as the objective to interpret, the source context, $C$, over which relevance scores are derived for, and an algorithmic schema $f(x)$ that outlines how to derive feature influence from an output feature. An attribution method produces an attribution map $\phi$ as a bounded probability distribution that spans the source context, denoting individual feature influence on the output. Taken together, attribution aims to trace, explain, and ascribe model behavior back to components. </p>
+<h3 id="setting-the-right-attribution-objective">Setting the right attribution objective<a class="headerlink" href="#setting-the-right-attribution-objective" title="Permanent link">¶</a></h3>
+<p>A key question to ask yourself is what do you want to attribute? This may seem trivial, but, in fact, could yield drastically different attribution performance. Take this sentiment classification for instance, suppose I want to attribute over the response: </p>
+<blockquote>
+<p>Prompt: I did not like the movies because my neighbors could not stay quiet and the theater room was not air conditioned. What is the sentiment? Answer simply. </p>
+<blockquote>
+<p>Answer: The </p>
+</blockquote>
+<p>Prompt: I did not like the movies because my neighbors could not stay quiet and the theater room was not air conditioned. What is the sentiment? Answer simply. </p>
+<blockquote>
+<p>Answer: The sentiment is negative. </p>
+</blockquote>
+</blockquote>
+<p>Attribution over the word “<em>the</em>” could prioritize influence of the question because it motivates the directive or the answer. Whereas, attribution over “<em>negative</em>” might yield better saliency maps over context features that were responsible in computing the actual sentiment classification. In other words, attribution scores are relative to target attribution objectives. Given that we have an underspecified attribution objective, this does not imply that one attribution map is necessarily superior to another.</p>
+<h2 id="taxonomy-of-feature-attribution-methods">Taxonomy of feature attribution methods<a class="headerlink" href="#taxonomy-of-feature-attribution-methods" title="Permanent link">¶</a></h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Family</th>
+<th>Examples</th>
+<th>Observation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Content mixture</td>
+<td>Attention Rollout, Aggregation of Layerwise Token Interactions (ALTI)</td>
+<td>Mixture of token embeddings from the residual stream</td>
+</tr>
+<tr>
+<td>Gradient-based</td>
+<td>Integrated Gradients (IG), Input × Gradients</td>
+<td>Approximates a first-order Taylor approximation via local linearization</td>
+</tr>
+<tr>
+<td>Perturbation-based</td>
+<td>Randomized Input Sampling for Explanation (RISE)</td>
+<td>Ablations, occlusions, or perturbations to an input feature lead to downstream influence</td>
+</tr>
+</tbody>
+</table></div>
+<p>There are three foundational approaches towards feature attribution: content mixture, gradient-based, and perturbation-based approaches. </p>
+<h3 id="content-mixture-approaches">Content mixture approaches<a class="headerlink" href="#content-mixture-approaches" title="Permanent link">¶</a></h3>
+<p><img alt="A visual of representational embeddings becoming increasingly mixed with original input embeddings" src="/images/blog1/representational_mixture.png">
+<strong>Figure 1</strong>: A visual of representational embeddings becoming increasingly mixed with original input embeddings.</p>
+<p>First, content mixture aims to quantify and score how input context features write to other input context positions. Under the residual stream perspective <a href="https://transformer-circuits.pub/2021/framework/index.html">(Elhage et al. 2021)</a>, the residual stream (L, N, d) acts as an aggregate channel or ledger that incorporates additive contributions of other tokens. As such, each token’s representation becomes thoroughly mixed with representation of other tokens <a href="https://arxiv.org/pdf/1908.04211">(Brunner et al., 2022)</a>.  Brunner formalizes the notion of token identifiability as whether a “as the existence of a mapping assigning contextual embeddings to their corresponding input tokens”. In other words, for a given hidden representation of the residual stream at layer l, can we predict that latent representation with the original context embeddings? A token is identifiable if we can decode which input embeddings have contributed to that representation. Brunner et al. discovers that representations from later layers of the residual streams become increasingly mixed with more tokens and can predominantly represent other features.  The implication is that a given token that contributes heavily to the attribution target does not merely indicate contributions from that one token but also other input features that are identifiable from that position.  Content mixture approaches exploits this phenomenon of token mixture by attempting to track the composition of context embeddings that comprise a given hidden representation and then to use  to score output contribution. </p>
+<p>Popular attention based approaches include variants of Attention Rollouts <a href="https://arxiv.org/pdf/2005.00928">(Abnar &amp; Zudeima, 2020)</a>, Aggregation of Layerwise Token Interactions (ALTI) <a href="https://arxiv.org/html/2602.01914">(Ferrando et al., 2022)</a>, GlobEnc <a href="https://aclanthology.org/2022.naacl-main.19.pdf">(Modarressi et al., 2022)</a>, and more recently, FlashTrace <a href="https://arxiv.org/html/2602.01914">(Pan et al., 2026)</a>. Early works of content-mixture approaches evaluate input saliency with respects to attention patterns, combining methods like <em>matrix rollouts<label for="sn-1" class="sidenote-ref">1</label><input type="checkbox" id="sn-1" class="sidenote-toggle"><span class="sidenote"><span class="sidenote-num">1</span>Matrix rollouts are computed via chained matrix multiplications $\tilde{A}{^L} = \tilde{A}^{L-1}\dots \tilde{A}^0$. There are different variations of matrix rollouts where one injects an identity matrix as an indication of self-contribution $\tilde{A}^{\ell}=0.5I + 0.5A^\ell$. Some methods simply use $\tilde{A}^\ell = A^\ell.$ Heads are typically fused by taking the average of the entries head-wise.</span></em> that aggregates and quantifies influence across layers. But, attention weights alone may not be sufficient to describe which features the model use to form predictions <a href="https://aclanthology.org/D19-1002.pdf">(Wiegreffe &amp; Pinter, 2019)</a>. As such, <a href="https://aclanthology.org/2020.emnlp-main.574.pdf">Kobayashi et al</a> proposed a norm-based analysis that evaluates the value-projected embeddings scaled by their respective attention weights, which improved explanatory faithfulness. Since then, other works have widened the horizon of their algorithmic schema beyond the attention mechanism to the broader transformer architecture. These innovations involve the incorporation of the residual skip connections (or sometimes called residual bypass), multi-layer perceptron (MLP) subcomponents, normalization layers, bias terms, and the decoder modules.  </p>
+<h4 id="an-example-case-study-with-flashtrace">An example case study with FlashTrace<a class="headerlink" href="#an-example-case-study-with-flashtrace" title="Permanent link">¶</a></h4>
+<p>FlashTrace was introduced by Pan et al., and had many similarities with ALTI and Information Flow Routes. These methods try to quantify how each layer&rsquo;s input features contributes to the residual stream and then try to aggregate it towards an attribution map. 
+Given that transformer residual streams are highly anisotropic, $\ell_2$ norm is dominated by directions with high variance. As such, FlashTrace uses the $\ell_1$ norm which is more robust to anisotropicity. The proximity metric is defined below as: 
+$$
+\begin{equation}
+    \mathrm{Proximity(x, y)} = \mathrm{max}(-||y||_{1} + ||y-x||_{1}, 0), \quad \mathrm{where} \;\; x, y \in \mathbb{R^{d_\mathrm{model}}}
+\end{equation}
+$$</p>
+<p>Intuitively, it captures how much does a vector contributes to the residual stream. It represents the resultant difference in distance between $y$ with and without a contribution, $x$. Using the residual stream perspective, we can decompose the contribution of the residual stream into two components: attention write and MLP writes.</p>
+<p>$$
+\begin{equation}
+x^{\text{mid},\,\ell}_i = x^{\ell}_i + \underbrace{\sum_{h=1}^{H} \sum_{j} \alpha^{\ell,h}_{ij}\, W^{\ell,h}_{OV}\, x^{\ell}_j}_{\mathrm{attention\; write}}
+\end{equation}
+$$
+$$
+\begin{equation}
+x^{\text{out},\,\ell}_i = x^{\text{mid},\,\ell}_i + \underbrace{W^{\ell}_{\text{out}}\!\left(W^{\ell}_{\text{in}}\, x^{\text{mid},\,\ell}_i + b^{\ell}_{\text{in}}\right) + b^{\ell}_{\text{out}}}_{\mathrm{mlp \; write}}
+\end{equation}
+$$</p>
+<p>Methods like FlashTrace and ALTI computes the proximity of the contributions of the attention write, $r_{ij}$ to the residual stream: $\mathrm{Proximity}(r_{ij}, x^{mid}_i)$. They similar do this for MLP contributions $\mathcal{c}_i$, $\mathrm{Proximity}(c_i, x^{out}_i)$. However, the flow of information to the residual stream comes from an additional competing source, namely, the residual skip connections. At $x^{mid}$, the residual skip connection is the flow of a prior layer&rsquo;s hidden representations (layer 1&rsquo;s would be input embeddings). At $x^{out}$, the residual skip connection is the flow of the prior attention submodule output. One way to practically address this is to calculating the <em>proportion</em> of contribution of each token to the residual stream against all the sources of contribution: $\mathrm{Prox_{Attn}} / (\mathrm{Prox_{Attn}}) + (\mathrm{Prox_{x^{\ell-1}}})$. This is similarly done for the MLP contributions. </p>
+<p>FlashTrace differs with ALTI largely by aggregation mechanism. For instance, ALTI follows a popular method of <em>matrix rollout</em> where contributions are stacked into a matrix over source and destination dimensions for each layer and rolled out via matrix multiplications. FlashTrace, however, simply aggregates layerwises and uses the proportion of MLP contribution as a convex weight to score each layer&rsquo;s influence for the final attribution map, $\phi$. </p>
+<p>Let&rsquo;s see how this works in practice. We&rsquo;ll be using HuggingFace&rsquo;s transformer libraries because they expose endpoints that are pretty easy to use. We&rsquo;ll need to write some functions to do the following: </p>
+<ol>
+<li>Extract attention patterns via the HuggingFace </li>
+<li>Compute the value-weighted output vector, $W_{OV}$</li>
+<li>Scale value-weighted output vector with attention weights to get attention write </li>
+<li>Take proximity of attention write to the residual stream</li>
+<li>Take proximity of MLP write to the residual stream</li>
+<li>Normalize each contribution from attention and MLP component with respective outputs </li>
+<li>Aggregate token interactions layerwise, while weighting weighting each layer </li>
+</ol>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span> 
+<span class="kn">from</span><span class="w"> </span><span class="nn">transformers</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoModelForCausalLM</span><span class="p">,</span> <span class="n">AutoTokenizer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
+
+<span class="c1"># Assuming x and y are is (1, d_model) </span>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_proximity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Computes L1 proximity.&quot;&quot;&quot;</span>
+    <span class="n">y_dist</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">diff_dist</span> <span class="o">=</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">prox</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">diff_dist</span> <span class="o">-</span> <span class="n">x_dist</span><span class="p">)</span> 
+    <span class="k">return</span> <span class="n">prox</span> 
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">FlashTrace</span><span class="p">:</span> 
+    <span class="n">inputs</span><span class="p">:</span> <span class="nb">str</span> <span class="c1"># input texts </span>
+    <span class="n">outputs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> 
+    <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span> <span class="c1"># HuggingFace model </span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> 
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load HuggingFace model.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">AutoModelForCausalLM</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">)</span> 
+        <span class="bp">self</span><span class="o">.</span><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_tokenize_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span> 
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Tokenize input features.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_tokens</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">,</span> <span class="n">return_tensors</span><span class="o">=</span><span class="s2">&quot;pt&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_capture_input_embeddings</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> 
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Capture input embeddings of the model.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_embeddings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">get_input_embeddings</span><span class="p">()(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_tokens</span><span class="p">)</span> <span class="c1"># Note that `.get_input_embeddings` returns W_embed and nn.Parameter which takes input tokens and maps to their respective input embeddings</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">generate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> 
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate responses and cache attention and internal activations </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span>
+                <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">input_tokens</span> 
+                <span class="n">max_new_tokens</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="c1"># new tokens to generate </span>
+                <span class="n">use_cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="c1"># caches key value matrices to speed up decoding </span>
+                <span class="n">cache_implementation</span><span class="o">=</span><span class="s2">&quot;quantized&quot;</span><span class="p">,</span>
+                <span class="n">output_attention</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="c1"># cache (L, H, N, N) matrix </span>
+                <span class="n">output_hidden_states</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="c1"># cache (L, N, d),</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">attention</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">attention</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hidden_states</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">hidden_states</span> 
+</code></pre></div>
+
+<p>Now, we compute the attention-weighted value vectors. Practically, this may be more challenging since materializing the full $(L, H, N, N)$ matrix can be extremely memory-intensive. It might be worth batching the computation of the OV circuit by looping through the model parameters and computing the $XW_{V}W_{O}$.<label for="sn-2" class="sidenote-ref">2</label><input type="checkbox" id="sn-2" class="sidenote-toggle"><span class="sidenote"><span class="sidenote-num">2</span>Additionally, production-ready models may have a greater number of query matrices than key or value matrices ($N_Q \geq N_{KV}$) as in the case of <a href="https://arxiv.org/pdf/2305.13245">Grouped Query Attention (GQA)</a> or <a href="https://arxiv.org/pdf/2502.07864">Multi-Head Latent Attention (MLA)</a>. As such, one would have to expand the number of key-value heads via <code>.repeat_interleave()</code>.</span></p>
+<div class="codehilite"><pre><span></span><code>    <span class="k">def</span><span class="w"> </span><span class="nf">compute_OV_circuit</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        We can compute OV circuit as follows: </span>
+<span class="sd">            W_ov = X @ W_V @ W_O</span>
+<span class="sd">        - The dimensions of X are (L, N, d_model); </span>
+<span class="sd">        - the dimensions of W_V are (d_model, d_head); </span>
+<span class="sd">        - the dimensions of W_O are (d_head, d_model); </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">layer</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">layers</span><span class="p">):</span> 
+            <span class="n">W_V</span> <span class="o">=</span> <span class="n">layer</span><span class="o">.</span><span class="n">self_attn</span><span class="o">.</span><span class="n">v_proj</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">T</span> 
+            <span class="n">W_O</span> <span class="o">=</span> <span class="n">layer</span><span class="o">.</span><span class="n">self_attn</span><span class="o">.</span><span class="n">o_proj</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">reshape</span><span class="p">()</span>
+</code></pre></div>
+
+<h3 id="gradient-based-approaches">Gradient-based approaches<a class="headerlink" href="#gradient-based-approaches" title="Permanent link">¶</a></h3>
+<p>A given $n$-th order Taylor approximation of a function is: 
+$$
+\begin{equation}
+\mathcal{F}(x) \approx \sum_{i=0}^{n} \frac{\mathcal{f}^{(\mathcal{i})}(x_{0})}{\mathcal{i}!} (x-x_{0})^i
+\end{equation}
+$$</p>
+<p>A $0$-4th order approximation is simply a horizontal line at $x_0$. The first order approximation is as follows: 
+$$
+\begin{equation}
+    \mathcal{F}(x) \approx f(x_{0}) + \underbrace{f'(x_0)}_{\substack{\mathrm{Jacobian} \\ \mathrm{gradients}}}(x - x_{0})
+\end{equation}
+$$
+and its&rsquo; second order-approximation is: 
+$$
+\begin{equation}
+\mathcal{F}(x) \approx f'(x_{0})(x-x_{0}) + \frac{1}{2}\underbrace{f''(x_0)}_{\substack{\mathrm{Hessian} \\ \mathrm{gradients}}}(x - x_0)^2
+\end{equation}
+$$</p>
+<p><strong>Equation 1</strong>: We can use Jacobian and Hessian gradients for the first order and second order derivative, respectively. These are fairly simple to compute with Pytorch. </p>
+<p>LLMs are deep neural networks composed of modules that perform linear and nonlinear computation to map input features (x) to the outputs (y). One way of thinking of these networks is abstracting the internal complexity and thinking of the functions as one amorphous, complex non-linear transformation. Geometrically, we can view the transformation as points moving along a curved, multidimensional manifold. We can approximate the functional relationship around an analytic point with a Taylor series expansion. Under a local linearity assumption, we can write a first-order Taylor approximation of the network behavior. In line with a geometric view, this is akin to fitting a tangent line at the point, where the slope of the tangent line is the first order derivative of the function evaluated at that point. In essence, the local linearity assumption allows us to zoom into the local neighborhood and determine the linear dependencies. </p>
+<p>We can also adopt the view of gradients as estimates of causal influence of output given small perturbations to input features. Imagine if we make an infinitesimal nudge to the input features, how does that affect the output features? The <strong>Jacobian gradient</strong> of a function $\mathcal{F}:\mathbb{R}^n \rightarrow \mathbb{R}^m$ is an $m{\times}n$ matrix that describe local estimate of the influence mapping between inputs and outputs. The row entries, $m$ denotes how all input features affect one scalar value of the output. The column entries describe a given $n$-th input feature&rsquo;s influence over the output feature  its influence over the output features. <a href="https://maximerobeyns.com/of_vjps_and_jvps">Maxime Roebyns</a> provides a very good intuitive explanation around Jacobian. We can obtain a saliency map over the $m$ input features by projecting the input features onto the Jacobian matrix $\phi_{m} = \mathrm{x}^T_{m}J$.   </p>
+<h3 id="perturbation-based-approach">Perturbation-based approach<a class="headerlink" href="#perturbation-based-approach" title="Permanent link">¶</a></h3>
+<p>The core idea of perturbation-based approaches is to quantify how perturbation to input features can lead to changes in output behavior. There are many ways to perturb an input features. We could ablate or remove a specific word and then induce generation over output, measuring changes in multi-token output probability distribution or logit values. Additionally, we can inject Gaussian noise into input embeddings and similarly induce generation. There are concerns where simply ablating context tokens might push model behavior out of distribution, so other work have explored substituting words for padding tokens or other in-distribution special tokens. </p>
+<h3 id="where-are-we">Where are we?<a class="headerlink" href="#where-are-we" title="Permanent link">¶</a></h3>
+<p>I suppose that I should have to preface here that I am by no means an attribution expert. A real expert would have significant breadth and depth of many of the attribution methods, their respective strengths and limitations, and likely better intuitions and mental frameworks to make sense of the current scientific landscape. In other words, a real expert would have better research taste and judgement. They can better conceptualize what are the current dilemmas and open-ended questions of our field and how we might shape attributional interpretability for scientific discovery, real world decision-making, and actionable insights.  Nonetheless, I am providing my non-expert account of what I see are open-ended questions and current problems: </p>
+<ul>
+<li>Multi-layer perceptrons comprise nearly $\frac{2}{3}$ of the total parameters of a language models and contain factual information but are seldom used for cross-token attribution. Given that they make individual positional writes to the residual stream, which can be viewed as a self-contribution, it is hard to account for any signature of inter-token communication here. Past methods have merely integrated these contributions as part of normalization factors accounting for that layer’s general contribution to the network output. Could we find a way to attribute MLP for cross-token influence? </li>
+<li>How do we scale attribution towards long-horizon contexts? Recent work has proposed recursive attribution (Pan et al.) but how do we attribute different parts of the prompt without prior contextual dependencies?</li>
+<li>How should we account for extended outputs? Should we attribute over all outputs? I’ve attempted to answer this question in a preprint in my summer internship at Noblis! I hope to share some early findings soon. </li>
+</ul>
+
+    </article>
+
+    <section class="cite">
+      <h2>Cite this post</h2>
+      <button type="button" class="cite-copy" data-target="bibtex">Copy</button>
+      <pre><code id="bibtex">@misc{huang2026primer,
+  title  = {{A primer on feature attribution for autoregressive language models}},
+  author = {Stanley Huang},
+  year   = {2026},
+  month  = {aug},
+  url    = {https://example.com/posts/first-post.html},
+  note   = {Blog post},
+}</code></pre>
+    </section>
+
+  </div>
+
+<script>
+/* Copy button for the BibTeX block. */
+document.querySelectorAll('.cite-copy').forEach(function (button) {
+  button.addEventListener('click', function () {
+    var text = document.getElementById(button.dataset.target).textContent;
+    navigator.clipboard.writeText(text).then(function () {
+      button.textContent = 'Copied';
+      setTimeout(function () { button.textContent = 'Copy'; }, 1500);
+    }).catch(function () {
+      button.textContent = 'Press ⌘C';
+    });
+  });
+});
+</script>
+
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$']],
+      displayMath: [['$$', '$$']],
+      processEnvironments: true,
+      tags: 'ams'
+    },
+    options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+  };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</body>
+</html>
