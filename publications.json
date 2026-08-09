@@ -1,0 +1,43 @@
+{
+  "highlightAuthor": "Huang, S.",
+  "groups": [
+    {
+      "label": "Theme one — a short phrase describing this line of work",
+      "publications": [
+        {
+          "authors": "Lastname, F., & Coauthor, A.",
+          "year": 2025,
+          "title": "Full title of the paper goes here.",
+          "venue": "Venue or Conference, 12(3), 45–67.",
+          "links": [
+            { "label": "pdf", "href": "#" },
+            { "label": "code", "href": "#" }
+          ]
+        },
+        {
+          "authors": "Coauthor, B., Lastname, F., & Coauthor, C.",
+          "year": 2024,
+          "title": "Another representative title here.",
+          "venue": "Journal Name, 8, e1234.",
+          "links": [
+            { "label": "pdf", "href": "#" }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Theme two — another strand of your research",
+      "publications": [
+        {
+          "authors": "Lastname, F.",
+          "year": 2024,
+          "title": "A title that shows breadth or a different method.",
+          "venue": "Proceedings of Something (SOMETHING).",
+          "links": [
+            { "label": "preprint", "href": "#" }
+          ]
+        }
+      ]
+    }
+  ]
+}

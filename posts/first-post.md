@@ -37,7 +37,7 @@ There are three foundational approaches towards feature attribution: content mix
 
 ### Content mixture approaches 
 
-![A visual of representational embeddings becoming increasingly mixed with original input embeddings](/images/blog1/representational_mixture.png)
+![A visual of representational embeddings becoming increasingly mixed with original input embeddings](../images/blog1/representational_mixture.png)
 **Figure 1**: A visual of representational embeddings becoming increasingly mixed with original input embeddings.
 
 First, content mixture aims to quantify and score how input context features write to other input context positions. Under the residual stream perspective [(Elhage et al. 2021)](https://transformer-circuits.pub/2021/framework/index.html), the residual stream (L, N, d) acts as an aggregate channel or ledger that incorporates additive contributions of other tokens. As such, each token’s representation becomes thoroughly mixed with representation of other tokens [(Brunner et al., 2022)](https://arxiv.org/pdf/1908.04211).  Brunner formalizes the notion of token identifiability as whether a “as the existence of a mapping assigning contextual embeddings to their corresponding input tokens”. In other words, for a given hidden representation of the residual stream at layer l, can we predict that latent representation with the original context embeddings? A token is identifiable if we can decode which input embeddings have contributed to that representation. Brunner et al. discovers that representations from later layers of the residual streams become increasingly mixed with more tokens and can predominantly represent other features.  The implication is that a given token that contributes heavily to the attribution target does not merely indicate contributions from that one token but also other input features that are identifiable from that position.  Content mixture approaches exploits this phenomenon of token mixture by attempting to track the composition of context embeddings that comprise a given hidden representation and then to use  to score output contribution. 
@@ -160,7 +160,8 @@ Now, we compute the attention-weighted value vectors. Practically, this may be m
         full_contribs = torch.stack(contribs, dim=0)
         return full_contribs 
     
-    def 
+    def compute_attention_write(): 
+        
     
     def compute_attention_write_proximity(self, contributions: torch.Tensor, residual_stream: torch.Tensor) -> torch.Tensor: 
         """
